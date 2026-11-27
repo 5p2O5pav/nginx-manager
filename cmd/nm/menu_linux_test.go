@@ -56,3 +56,12 @@ func TestStripPrefixDefaultsOff(t *testing.T) {
 		t.Fatal("y/yes 应启用剥离前缀")
 	}
 }
+
+func TestBackendAddressDefaultsToLoopbackHTTP(t *testing.T) {
+	if got := backendOrDefault(""); got != "http://127.0.0.1" {
+		t.Fatalf("got %q", got)
+	}
+	if got := backendOrDefault(" 127.0.0.1:3000 "); got != "127.0.0.1:3000" {
+		t.Fatalf("got %q", got)
+	}
+}

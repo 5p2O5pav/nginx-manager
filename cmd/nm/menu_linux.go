@@ -125,6 +125,14 @@ func affirmative(value string) bool {
 	return strings.EqualFold(strings.TrimSpace(value), "y") || strings.EqualFold(strings.TrimSpace(value), "yes")
 }
 
+func backendOrDefault(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "http://127.0.0.1"
+	}
+	return value
+}
+
 func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -315,7 +323,7 @@ func (m menuModel) updateInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if form == "route-edit" {
 					op = "edit"
 				}
-				args := []string{"route", op, vals[0], vals[1], vals[2]}
+				args := []string{"route", op, vals[0], vals[1], backendOrDefault(vals[2])}
 				if affirmative(vals[3]) {
 					args = append(args, "--strip")
 				}
@@ -668,7 +676,7 @@ func inputPrompt(m menuModel) string {
 		}
 		return "新域名"
 	case "route-add", "route-edit":
-		prompts := []string{"路径（默认 /）", "后端地址（默认 HTTP）", "剥离路径前缀？[y/N，回车默认不剥离]", "启用 WebSocket？[y/N]", "上游 TLS 名称（可空）", "CA 文件绝对路径（可空）", "关闭证书验证？[y/N]"}
+		prompts := []string{"路径（默认 /）", "后端地址（回车默认 http://127.0.0.1；裸 IP 自动使用 HTTP）", "剥离路径前缀？[y/N，回车默认不剥离]", "启用 WebSocket？[y/N]", "上游 TLS 名称（可空）", "CA 文件绝对路径（可空）", "关闭证书验证？[y/N]"}
 		return prompts[len(m.fields)-1]
 	case "restore-name":
 		return "备份文件名"
