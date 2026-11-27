@@ -2,6 +2,20 @@
 
 面向 Debian / Ubuntu（systemd、apt）的本机 Nginx 反向代理管理工具。
 
+## 一键安装
+
+在 Linux x86_64（amd64）的 Debian / Ubuntu 服务器上执行：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/5p2O5pav/nginx-manager/main/install.sh | sh
+```
+
+脚本会下载并校验 v1.0.0 安装包，将程序安装到 `/usr/local/bin/nm`。安装时需要 root 权限（非 root 用户需要 `sudo`），并需要 `curl`、`tar` 和 `sha256sum`。安装完成后运行：
+
+```sh
+sudo nm
+```
+
 ## 构建与启动
 
 需要 Go 1.24 或更新版本；Debian 12 自带的软件仓库 Go 版本可能不足，请先从 [Go 官方下载页](https://go.dev/dl/)安装适用于本机架构的版本，并用 `go version` 确认。构建时需要网络下载 Go 模块。Linux 上执行：
