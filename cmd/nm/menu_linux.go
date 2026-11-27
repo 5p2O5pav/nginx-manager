@@ -131,7 +131,7 @@ func affirmative(value string) bool {
 func backendOrDefault(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return "http://127.0.0.1"
+		return "127.0.0.1"
 	}
 	return value
 }

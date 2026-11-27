@@ -78,10 +78,17 @@ func TestStripPrefixDefaultsOff(t *testing.T) {
 }
 
 func TestBackendAddressDefaultsToLoopbackHTTP(t *testing.T) {
-	if got := backendOrDefault(""); got != "http://127.0.0.1" {
+	if got := backendOrDefault(""); got != "127.0.0.1" {
 		t.Fatalf("got %q", got)
 	}
 	if got := backendOrDefault(" 127.0.0.1:3000 "); got != "127.0.0.1:3000" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestDefaultBackendCompositionDoesNotDuplicateScheme(t *testing.T) {
+	got := composeTarget("http", backendOrDefault(""), "30001")
+	if got != "http://127.0.0.1:30001" {
 		t.Fatalf("got %q", got)
 	}
 }
