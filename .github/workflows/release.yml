@@ -10,13 +10,14 @@ permissions:
 
 jobs:
   release:
+    name: Test and publish Linux binaries
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Install Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -25,24 +26,23 @@ jobs:
       - name: Test
         run: go test ./...
 
-      - name: Build Linux binaries
+      - name: Build release archives
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
 
           for arch in amd64 arm64; do
-            name="nm-linux-${arch}"
-            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" \
-              go build -trimpath -ldflags="-s -w" -o "dist/${name}" ./cmd/nm
-
-            tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+            binary="nm-linux-${arch}"
+            CGO_ENABLED=0 GOOS=linux GOARCH="${arch}" \
+              go build -trimpath -ldflags="-s -w" -o "dist/${binary}" ./cmd/nm
+            tar -C dist -czf "dist/${binary}.tar.gz" "${binary}"
           done
 
           cd dist
-          sha256sum *.tar.gz > SHA256SUMS
+          sha256sum nm-linux-*.tar.gz > SHA256SUMS
 
-      - name: Publish GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true

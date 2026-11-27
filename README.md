@@ -13,6 +13,18 @@ sudo install -m 0755 nm /usr/local/bin/nm
 sudo nm
 ```
 
+## GitHub 自动发布
+
+仓库包含 GitHub Actions 发布流程。提交并推送代码后，在 GitHub Desktop 的 **Branch → Create Tag…** 创建版本标签（例如 `v0.1.0`），然后通过 **Push origin** 推送标签。GitHub Actions 会运行测试、构建 Linux amd64/arm64 压缩包、生成 SHA256 校验文件，并在构建成功后创建 GitHub Release。可在仓库的 **Actions** 页面查看过程，在 **Releases** 页面下载产物。标签必须以 `v` 开头。
+
+Release 包可在 Debian 12 上这样安装（以 amd64 为例）：
+
+```sh
+tar -xzf nm-linux-amd64.tar.gz
+sudo install -m 0755 nm-linux-amd64 /usr/local/bin/nm
+sudo nm
+```
+
 首次运行会在未安装 Nginx 时询问是否安装，然后提示接管和备份现有 Nginx 配置；两处均可按回车同意。ACME.sh 需要预先以 root 身份安装到 `/root/.acme.sh/acme.sh`，并启用其续签定时任务。程序接管后，原配置备份位于 `/etc/nm/nginx-original-backup`。
 
 例如，参考 [ACME.sh 官方安装说明](https://github.com/acmesh-official/acme.sh#installation)以 root 安装：
