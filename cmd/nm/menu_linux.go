@@ -82,7 +82,7 @@ func (m *menuModel) setScreen(screen string) {
 		for _, d := range domains {
 			m.choices = append(m.choices, d.Name+"  |  添加规则")
 			for _, r := range d.Routes {
-				m.choices = append(m.choices, d.Name+"  |  "+r.Path+"  →  "+r.Target)
+				m.choices = append(m.choices, "    "+r.Path+"  →  "+r.Target)
 			}
 		}
 		m.choices = append(m.choices, "返回")
@@ -97,7 +97,9 @@ func (m *menuModel) setScreen(screen string) {
 		}
 		m.choices = append(m.choices, "添加规则", "返回域名列表")
 	case "route-actions":
-		m.choices = []string{"编辑规则", "删除规则", "添加规则", "返回规则列表"}
+		m.choices = []string{"删除规则", "返回规则列表"}
+	case "route-delete-confirm":
+		m.choices = []string{"确认删除并立即生效", "取消，返回规则列表"}
 	case "certs":
 		m.choices = []string{"签发证书", "删除证书", "证书状态", "返回主菜单"}
 	case "cert-domains":
@@ -118,6 +120,10 @@ func enabledText(enabled bool) string {
 	return "禁用"
 }
 func domainNameChoice(choice string) string { return strings.TrimSpace(strings.Split(choice, "|")[0]) }
+
+func affirmative(value string) bool {
+	return strings.EqualFold(strings.TrimSpace(value), "y") || strings.EqualFold(strings.TrimSpace(value), "yes")
+}
 
 func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch v := msg.(type) {
@@ -220,20 +226,6 @@ func (m menuModel) updateInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				return resultMsg{text: "证书已签发并部署: " + name}
 			}
-		case "route-delete-confirm":
-			vals := append([]string(nil), m.fields...)
-			m.fields = nil
-			m.input = false
-			if !strings.EqualFold(strings.TrimSpace(v), "yes") {
-				m.message = "已取消"
-				return m, nil
-			}
-			return m, func() tea.Msg {
-				if e := run([]string{"route", "delete", vals[0], vals[1]}); e != nil {
-					return resultMsg{text: e.Error()}
-				}
-				return resultMsg{text: "规则已删除"}
-			}
 		case "toggle-domain", "delete-domain-confirm", "delete-cert-confirm", "restore-confirm":
 			values := append(m.fields, v)
 			form := m.form
@@ -324,10 +316,10 @@ func (m menuModel) updateInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 					op = "edit"
 				}
 				args := []string{"route", op, vals[0], vals[1], vals[2]}
-				if strings.EqualFold(vals[3], "y") {
+				if affirmative(vals[3]) {
 					args = append(args, "--strip")
 				}
-				if strings.EqualFold(vals[4], "y") {
+				if affirmative(vals[4]) {
 					args = append(args, "--websocket")
 				}
 				if len(vals) == 8 {
@@ -337,7 +329,7 @@ func (m menuModel) updateInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 					if vals[6] != "" {
 						args = append(args, "--ca="+vals[6])
 					}
-					if strings.EqualFold(vals[7], "y") {
+					if affirmative(vals[7]) {
 						args = append(args, "--insecure")
 					}
 				}
@@ -434,13 +426,18 @@ func (m menuModel) activate() (tea.Model, tea.Cmd) {
 		if strings.HasPrefix(choice, "返回") {
 			m.setScreen("main")
 		} else {
-			m.selectedDomain = domainNameChoice(choice)
-			parts := strings.SplitN(choice, "|", 2)
-			if len(parts) == 2 && strings.TrimSpace(parts[1]) == "添加规则" {
+			if strings.Contains(choice, "|") {
+				m.selectedDomain = domainNameChoice(choice)
 				m.fields = []string{m.selectedDomain}
 				m.startInput("route-add", "输入匹配路径，留空为 /")
-			} else if len(parts) == 2 {
-				m.selectedPath = strings.TrimSpace(strings.SplitN(parts[1], "→", 2)[0])
+			} else {
+				for i := m.selected - 1; i >= 0; i-- {
+					if strings.Contains(m.choices[i], "|") {
+						m.selectedDomain = domainNameChoice(m.choices[i])
+						break
+					}
+				}
+				m.selectedPath = strings.TrimSpace(strings.SplitN(choice, "→", 2)[0])
 				m.setScreen("route-actions")
 			}
 		}
@@ -457,16 +454,22 @@ func (m menuModel) activate() (tea.Model, tea.Cmd) {
 	case "route-actions":
 		switch m.selected {
 		case 0:
+			m.setScreen("route-delete-confirm")
 			m.fields = []string{m.selectedDomain, m.selectedPath}
-			m.startInput("route-edit", "输入新后端地址")
-		case 1:
-			m.fields = []string{m.selectedDomain, m.selectedPath}
-			m.startInput("route-delete-confirm", "输入 yes 确认删除此规则")
-		case 2:
-			m.fields = []string{m.selectedDomain}
-			m.startInput("route-add", "输入匹配路径，留空为 /")
 		default:
-			m.setScreen("route-list")
+			m.setScreen("routes")
+		}
+	case "route-delete-confirm":
+		if m.selected != 0 {
+			m.setScreen("routes")
+			return m, nil
+		}
+		values := append([]string(nil), m.fields...)
+		return m, func() tea.Msg {
+			if e := run([]string{"route", "delete", values[0], values[1]}); e != nil {
+				return resultMsg{text: "删除失败: " + e.Error()}
+			}
+			return resultMsg{text: "规则已删除并生效"}
 		}
 	case "certs":
 		switch m.selected {
@@ -585,7 +588,9 @@ func (m *menuModel) back() {
 	case "route-list":
 		m.setScreen("routes")
 	case "route-actions":
-		m.setScreen("route-list")
+		m.setScreen("routes")
+	case "route-delete-confirm":
+		m.setScreen("routes")
 	case "cert-domains":
 		m.setScreen("certs")
 	default:
@@ -663,7 +668,7 @@ func inputPrompt(m menuModel) string {
 		}
 		return "新域名"
 	case "route-add", "route-edit":
-		prompts := []string{"路径（默认 /）", "后端地址（默认 HTTP）", "剥离路径前缀？[y/N]", "启用 WebSocket？[y/N]", "上游 TLS 名称（可空）", "CA 文件绝对路径（可空）", "关闭证书验证？[y/N]"}
+		prompts := []string{"路径（默认 /）", "后端地址（默认 HTTP）", "剥离路径前缀？[y/N，回车默认不剥离]", "启用 WebSocket？[y/N]", "上游 TLS 名称（可空）", "CA 文件绝对路径（可空）", "关闭证书验证？[y/N]"}
 		return prompts[len(m.fields)-1]
 	case "restore-name":
 		return "备份文件名"

@@ -37,9 +37,22 @@ func TestRouteFormAndDeleteConfirmation(t *testing.T) {
 	if cmd != nil || !strings.Contains(m.View(), "后端地址") {
 		t.Fatal("应继续输入后端")
 	}
-	m = menuModel{input: true, form: "route-delete-confirm", fields: []string{"example.com", "/api/"}, value: "no"}
+	m = menuModel{screen: "route-actions", choices: []string{"删除规则", "返回规则列表"}, fields: []string{"example.com", "/api/"}}
 	model, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd != nil || model.(menuModel).message != "已取消" {
-		t.Fatal("未确认时不应删除")
+	if cmd != nil || model.(menuModel).screen != "route-delete-confirm" || len(model.(menuModel).choices) != 2 {
+		t.Fatal("应先显示两项删除确认菜单")
+	}
+	model, cmd = model.(menuModel).Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("第二次回车应执行删除")
+	}
+}
+
+func TestStripPrefixDefaultsOff(t *testing.T) {
+	if affirmative("") || affirmative("n") || affirmative("no") {
+		t.Fatal("空输入或否定答案不应剥离前缀")
+	}
+	if !affirmative("y") || !affirmative(" YES ") {
+		t.Fatal("y/yes 应启用剥离前缀")
 	}
 }
