@@ -1,6 +1,6 @@
 # Nginx Manager
 
-面向 Debian / Ubuntu（systemd、apt）的本机 Nginx 反向代理管理工具。开发需求见 `开发文档V1.md`。
+面向 Debian / Ubuntu（systemd、apt）的本机 Nginx 反向代理管理工具。
 
 ## 构建与启动
 
