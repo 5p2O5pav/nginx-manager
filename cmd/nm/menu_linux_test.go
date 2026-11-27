@@ -27,15 +27,29 @@ func TestAfterAddPromptsBeforeIssue(t *testing.T) {
 }
 
 func TestRouteFormAndDeleteConfirmation(t *testing.T) {
-	m := menuModel{input: true, form: "route-add", fields: []string{"example.com"}}
-	if !strings.Contains(m.View(), "路径") {
-		t.Fatal("应先输入路径")
-	}
-	m.value = "/api/"
-	model, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := menuModel{screen: "route-protocol", choices: []string{"HTTP（未加密）", "HTTPS（加密）"}, selected: 0, selectedDomain: "example.com"}
+	model, cmd := m.activate()
 	m = model.(menuModel)
-	if cmd != nil || !strings.Contains(m.View(), "后端地址") {
-		t.Fatal("应继续输入后端")
+	if cmd != nil || !m.input || m.form != "route-add" || m.fields[1] != "http" {
+		t.Fatal("默认应选择 HTTP 并开始输入地址")
+	}
+	steps := []string{"", "3000", "", "", ""}
+	for i, v := range steps {
+		if !strings.Contains(m.View(), []string{"后端地址", "端口", "路径", "剥离", "WebSocket"}[i]) {
+			t.Fatalf("第 %d 步提示错误: %s", i+1, m.View())
+		}
+		m.value = v
+		model, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m = model.(menuModel)
+		if i < len(steps)-1 && cmd != nil {
+			t.Fatal("输入尚未完成，不应提交")
+		}
+	}
+	if cmd == nil {
+		t.Fatal("全部输入完成后应提交规则")
+	}
+	if got := composeTarget("http", "127.0.0.1", "3000"); got != "http://127.0.0.1:3000" {
+		t.Fatalf("got target %q", got)
 	}
 	m = menuModel{screen: "route-actions", choices: []string{"删除规则", "返回规则列表"}, fields: []string{"example.com", "/api/"}}
 	model, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -45,6 +59,12 @@ func TestRouteFormAndDeleteConfirmation(t *testing.T) {
 	model, cmd = model.(menuModel).Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("第二次回车应执行删除")
+	}
+}
+
+func TestComposeIPv6Target(t *testing.T) {
+	if got := composeTarget("https", "[::1]", "8443"); got != "https://[::1]:8443" {
+		t.Fatalf("got %q", got)
 	}
 }
 

@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"strings"
@@ -98,6 +99,8 @@ func (m *menuModel) setScreen(screen string) {
 		m.choices = append(m.choices, "添加规则", "返回域名列表")
 	case "route-actions":
 		m.choices = []string{"删除规则", "返回规则列表"}
+	case "route-protocol":
+		m.choices = []string{"HTTP（未加密）", "HTTPS（加密）"}
 	case "route-delete-confirm":
 		m.choices = []string{"确认删除并立即生效", "取消，返回规则列表"}
 	case "certs":
@@ -131,6 +134,11 @@ func backendOrDefault(value string) string {
 		return "http://127.0.0.1"
 	}
 	return value
+}
+
+func composeTarget(scheme, host, port string) string {
+	host = strings.TrimPrefix(strings.TrimSuffix(strings.TrimSpace(host), "]"), "[")
+	return strings.TrimSpace(scheme) + "://" + net.JoinHostPort(host, strings.TrimSpace(port))
 }
 
 func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -307,14 +315,10 @@ func (m menuModel) updateInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case "route-add", "route-edit":
 			m.fields = append(m.fields, v)
-			if len(m.fields) < 5 {
+			if len(m.fields) < 7 {
 				return m, nil
 			}
 			vals := append([]string(nil), m.fields...)
-			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(vals[2])), "https://") && len(vals) < 8 {
-				m.fields = vals
-				return m, nil
-			}
 			form := m.form
 			m.fields = nil
 			m.input = false
@@ -323,23 +327,13 @@ func (m menuModel) updateInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if form == "route-edit" {
 					op = "edit"
 				}
-				args := []string{"route", op, vals[0], vals[1], backendOrDefault(vals[2])}
-				if affirmative(vals[3]) {
+				target := composeTarget(vals[1], backendOrDefault(vals[2]), vals[3])
+				args := []string{"route", op, vals[0], vals[4], target}
+				if affirmative(vals[5]) {
 					args = append(args, "--strip")
 				}
-				if affirmative(vals[4]) {
+				if affirmative(vals[6]) {
 					args = append(args, "--websocket")
-				}
-				if len(vals) == 8 {
-					if vals[5] != "" {
-						args = append(args, "--server-name="+vals[5])
-					}
-					if vals[6] != "" {
-						args = append(args, "--ca="+vals[6])
-					}
-					if affirmative(vals[7]) {
-						args = append(args, "--insecure")
-					}
 				}
 				if e := run(args); e != nil {
 					return resultMsg{text: e.Error()}
@@ -436,8 +430,8 @@ func (m menuModel) activate() (tea.Model, tea.Cmd) {
 		} else {
 			if strings.Contains(choice, "|") {
 				m.selectedDomain = domainNameChoice(choice)
-				m.fields = []string{m.selectedDomain}
-				m.startInput("route-add", "输入匹配路径，留空为 /")
+				m.setScreen("route-protocol")
+				m.selectedDomain = domainNameChoice(choice)
 			} else {
 				for i := m.selected - 1; i >= 0; i-- {
 					if strings.Contains(m.choices[i], "|") {
@@ -453,8 +447,7 @@ func (m menuModel) activate() (tea.Model, tea.Cmd) {
 		if choice == "返回域名列表" {
 			m.setScreen("routes")
 		} else if choice == "添加规则" {
-			m.fields = []string{m.selectedDomain}
-			m.startInput("route-add", "输入匹配路径，留空为 /")
+			m.setScreen("route-protocol")
 		} else {
 			m.selectedPath = strings.TrimSpace(strings.Split(choice, "→")[0])
 			m.setScreen("route-actions")
@@ -467,6 +460,14 @@ func (m menuModel) activate() (tea.Model, tea.Cmd) {
 		default:
 			m.setScreen("routes")
 		}
+	case "route-protocol":
+		scheme := "http"
+		if m.selected == 1 {
+			scheme = "https"
+		}
+		domain := m.selectedDomain
+		m.startInput("route-add", "第二步：输入后端地址，回车默认 127.0.0.1")
+		m.fields = []string{domain, scheme}
 	case "route-delete-confirm":
 		if m.selected != 0 {
 			m.setScreen("routes")
@@ -675,9 +676,11 @@ func inputPrompt(m menuModel) string {
 			return "输入 yes 确认"
 		}
 		return "新域名"
-	case "route-add", "route-edit":
-		prompts := []string{"路径（默认 /）", "后端地址（回车默认 http://127.0.0.1；裸 IP 自动使用 HTTP）", "剥离路径前缀？[y/N，回车默认不剥离]", "启用 WebSocket？[y/N]", "上游 TLS 名称（可空）", "CA 文件绝对路径（可空）", "关闭证书验证？[y/N]"}
-		return prompts[len(m.fields)-1]
+	case "route-add":
+		prompts := []string{"输入后端地址（回车默认 127.0.0.1）", "输入端口（必填）", "输入转发路径（回车默认 /）", "剥离路径前缀？输入 y/Y 剥离，回车不剥离", "启用 WebSocket？输入 y/Y 启用，回车不启用"}
+		return prompts[len(m.fields)-2]
+	case "route-edit":
+		return "后端地址"
 	case "restore-name":
 		return "备份文件名"
 	case "settings":
