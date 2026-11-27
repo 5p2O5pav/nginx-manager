@@ -4,13 +4,13 @@
 
 ## 一键安装
 
-在 Linux x86_64（amd64）的 Debian / Ubuntu 服务器上执行：
+在 Linux amd64 或 arm64 的 Debian / Ubuntu 服务器上执行：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/5p2O5pav/nginx-manager/main/install.sh | sh
 ```
 
-脚本会下载并校验 v1.0.0 安装包，将程序安装到 `/usr/local/bin/nm`。安装时需要 root 权限（非 root 用户需要 `sudo`），并需要 `curl`、`tar` 和 `sha256sum`。安装完成后运行：
+脚本会自动识别服务器架构，下载并校验对应的 v1.0.0 安装包，将程序安装到 `/usr/local/bin/nm`。安装时需要 root 权限（非 root 用户需要 `sudo`），并需要 `curl`、`tar` 和 `sha256sum`。安装完成后运行：
 
 ```sh
 sudo nm
